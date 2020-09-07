@@ -1,62 +1,26 @@
-#!/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import socket
 import logging
-from enum import Enum, IntEnum
+
+from enum import IntEnum
 from pprint import pformat
 
-_logger = logging.getLogger(__name__)
-_logger.setLevel(logging.DEBUG)
-
-# Create console handler with a higher log level
-handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
-
-# Create formatter and add it to the handler
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-handler.setFormatter(formatter)
-
-# Add the handler to the logger
-_logger.addHandler(handler)
-
-
-def byte2sbyte(value):
-    if value > 127:
-        return (256 - value) * (-1)
-    else:
-        return value
-
-
-def sbyte2byte(value):
-    if value < 0:
-        return 256 + value
-    else:
-        return value
-
-
-def barray2blist(value):
-    return list(value)
-
-
-def barray2hexlist(value):
-    return [hex(x) for x in list(value)]
-
-
-def barray2sblist(value):
-    return [byte2sbyte(x) for x in list(value)]
-
-
-# CRC [ 107, -69]
-
 from crcmod.predefined import mkPredefinedCrcFun
-modbus_crc = mkPredefinedCrcFun('modbus')
+from .convert import (
+    byte2sbyte,
+    sbyte2byte,
+    barray2blist,
+    barray2hexlist,
+    barray2sblist,
+)
+
+_logger = logging.getLogger(__name__)
 
 
 class Query(IntEnum):
     TYPE_COMMAND = 0xa1  # -95=161
-    #TYPE_GET_INFO = 0xa7  # -89=167
     TYPE_GET_INFO = 0xa2  # -94=162
 
 
@@ -84,12 +48,14 @@ def invert(cmd: Command) -> Command:
         res = cmd
     return res
 
+
 class Mode(IntEnum):
     AUTO = 0x00
     COOL = 0x01
     DEHUMIDIFIER = 0x02
     FAN = 0x03
     HEAT = 0x04
+
 
 class Datagram:
     HEADER = 0x7a  # 122
@@ -102,36 +68,6 @@ class Datagram:
     # ===========================
     AC_DATA0 = 0x0a  # 10 ?
     AC_DATA1 = 0x0a  # 10 ?
-
-
-class ControlAction(IntEnum):
-    OFF = 0
-    ON = 1
-
-
-class SwingAction(IntEnum):
-    OFF = 0
-    LEFT_RIGHT = 1
-    UP_DOWN = 2
-    ALL = 2
-
-
-class ModeAction(IntEnum):
-    AUTO = 0
-    COOL = 1
-    HEAT = 2
-    DEHUMIDIFIER = 3
-    FAN = 4
-
-
-class SpeedAction(IntEnum):
-    AUTO = 0
-    SPEED_1 = 1
-    SPEED_2 = 2
-    SPEED_3 = 3
-    SPEED_4 = 4
-    SPEED_5 = 5
-    SPEED_6 = 6
 
 
 def raw_to_fahrenheit(value: int) -> int:
@@ -185,34 +121,13 @@ def raw_to_celcius(value: int) -> int:
     return value + 16
 
 
-class AirConditionner:
+modbus_crc = mkPredefinedCrcFun('modbus')
+
+
+class AirConditionerController:
     def __init__(self, host: str, port: int = 1998) -> None:
         self.host = host
         self.port = port
-        # Used to save and restore swing state per mode
-        self._swing_state = {
-            ModeAction.AUTO: 0,
-            ModeAction.COOL: 0,
-            ModeAction.HEAT: 0,
-            ModeAction.DEHUMIDIFIER: 0,
-            ModeAction.FAN: 0,
-        }
-        # Used to save and restore fan speed per mode
-        self._fan_speed = {
-            ModeAction.AUTO: 0,
-            ModeAction.COOL: 0,
-            ModeAction.HEAT: 0,
-            ModeAction.DEHUMIDIFIER: 0,
-            ModeAction.FAN: 0,
-        }
-        # Used to save and restore temperature set (celsius/fahrenheit)
-        self._temperature_set = {
-            ModeAction.AUTO: 9,  # Always 9 in auto mode
-            ModeAction.COOL: 0,
-            ModeAction.HEAT: 0,
-            ModeAction.DEHUMIDIFIER: 0,
-            ModeAction.FAN: 0,
-        }
         self._reset_data()
 
     def _reset_data(self):
@@ -228,23 +143,6 @@ class AirConditionner:
         self.data10 = 0
         self.data13 = 0
         self.data14 = 0
-
-    def _get_mode_from_state(self) -> ModeAction:
-        mode = self._get_mode()
-        if mode == Mode.AUTO:
-            res = ModeAction.AUTO
-        elif mode == Mode.COOL:
-            res = ModeAction.COOL
-        elif mode == Mode.HEAT:
-            res = ModeAction.HEAT
-        elif mode == Mode.DEHUMIDIFIER:
-            res = ModeAction.DEHUMIDIFIER
-        elif mode == Mode.FAN:
-            res = ModeAction.FAN
-        else:
-            _logger.error('Invalid mode %d', mode)
-            res = ModeAction.AUTO
-        return res
 
     def _get_power(self) -> bool:
         res = (self.data1 & invert(Command.POWER)) >> 3
@@ -308,53 +206,6 @@ class AirConditionner:
         controlbit = (value << 4) % 255
         self.data1 = (self.data1 & Command.FAN_SPEED) | controlbit
         self._save_fan_speed()
-
-    def _save_swing_state(self):
-        # saveWindDirection
-        current_mode = self._get_mode_from_state()
-        self._swing_state[current_mode] = self.data3
-        _logger.debug(
-            "Swing state for %s saved to %d",
-            current_mode,
-            self._swing_state[current_mode],
-        )
-
-    def _restore_swing_state(self):
-        # remember____WindDirection
-        current_mode = self._get_mode_from_state()
-        self.data3 = self._swing_state[current_mode]
-        pass
-
-    def _save_fan_speed(self):
-        # saveWindSpeed
-        current_mode = self._get_mode_from_state()
-        self._fan_speed[current_mode] = self._get_fan_speed()
-        _logger.debug(
-            "Fan speed for %s saved to %d",
-            current_mode,
-            self._fan_speed[current_mode],
-        )
-
-    def _restore_fan_speed(self):
-        # remember____WindSpeed
-        current_mode = self._get_mode_from_state()
-        speed = self._fan_speed[current_mode]
-        _logger.debug(
-            "Restore fan speed for %s to %d",
-            current_mode,
-            self._swing_state[current_mode],
-        )
-        self._set_fan_speed(speed)
-
-    def _save_temperature_set(self):
-        current_mode = self._get_mode_from_state()
-        self._temperature_set[current_mode] = 0
-
-    def _restore_temperature_set(self):
-        # Check for getFahrenheitByte in original implementation
-        current_mode = self._get_mode_from_state()
-        temperature = self._temperature_set[current_mode]
-        self._set_temperature_set(temperature)
 
     def _set_temperature_set(self, temperature: int):
         self.data2 = (self.data2 & Command.TEMPERATURE_SET) | temperature
@@ -448,7 +299,6 @@ class AirConditionner:
             'auxiliary_heating': self._get_auxiliary_heating(),
             'temperature_mode': self._get_temperature_mode(),
             'temperature_set': self._get_temperature_set(),
-            'mode_from_state': self._get_mode_from_state(),
             'swing_left_right': self._get_swing_left_right(),
             'swing_up_down': self._get_swing_up_down(),
             'energy_saving': self._get_energy_saving(),
@@ -460,145 +310,9 @@ class AirConditionner:
             'power': self._get_power(),
             'sleep': self._get_sleep(),
             'turbo': self._get_turbo(),
-            
         }
         _logger.info(pformat(res))
         return res
-
-    def power_on(self):
-        self._set_power(True)
-        self._run_command()
-
-    def power_off(self):
-        self._set_power(False)
-        self._run_command()
-
-    def swing_get(self) -> SwingAction:
-        lr = self._get_swing_left_right()
-        ud = self._get_swing_up_down()
-        if lr and ud:
-            res = SwingAction.ALL
-        elif lr and not ud:
-            res = SwingAction.LEFT_RIGHT
-        elif not lr and ud:
-            res = SwingAction.UP_DOWN
-        else:
-            res = SwingAction.OFF
-        return res
-
-    def swing_set(self, action: SwingAction):
-        self._set_power(True)
-        if action == SwingAction.OFF:
-            self._set_swing_off()
-        elif action == SwingAction.LEFT_RIGHT:
-            self._set_swing_left_right(True)
-            self._set_swing_up_down(False)
-        elif action == SwingAction.UP_DOWN:
-            self._set_swing_up_down(True)
-            self._set_swing_left_right(False)
-        elif action == SwingAction.ALL:
-            self._set_swing_up_down(True)
-            self._set_swing_left_right(True)
-        self._save_swing_state()
-
-    def mode_set(self, action: ModeAction):
-        self._set_power(True)
-        if action == ModeAction.AUTO:
-            self._set_power(True)
-            self._set_turbo(False)
-            self._set_mode(Mode.AUTO)
-            self._restore_fan_speed()
-            self._restore_temperature_set()
-            self._set_mute(False)
-            self._restore_swing_state()
-            self._set_auxiliary_heating(False)
-            self._set_sleep(False)
-            self._set_energy_saving(False)
-        elif action == ModeAction.COOL:
-            self._set_power(True)
-            self._set_mode(Mode.COOL)
-            self._restore_fan_speed()
-            self._restore_temperature_set()
-            self._set_mute(False)
-            self._restore_swing_state()
-            self._set_auxiliary_heating(False)
-            self._set_sleep(False)
-            self._set_energy_saving(False)
-        elif action == ModeAction.HEAT:
-            self._set_power(True)
-            self._set_mode(Mode.HEAT)
-            self._restore_fan_speed()
-            self._restore_temperature_set()
-            self._set_mute(False)
-            self._restore_swing_state()
-            self._set_auxiliary_heating(True)
-            self._set_sleep(False)
-            self._set_energy_saving(False)
-        elif action == ModeAction.DEHUMIDIFIER:
-            self._set_power(True)
-            self._set_mode(Mode.DEHUMIDIFIER)
-            self._set_turbo(False)
-            self._set_fan_speed(1)
-            self._restore_temperature_set()
-            self._set_mute(False)
-            self._restore_swing_state()
-            self._set_auxiliary_heating(False)
-            self._set_sleep(False)
-            self._set_energy_saving(False)
-        elif action == ModeAction.FAN:
-            self._set_power(True)
-            self._set_mode(Mode.FAN)
-            self._restore_fan_speed()
-            self._restore_temperature_set()
-            self._set_mute(False)
-            self._restore_swing_state()
-            self._set_auxiliary_heating(False)
-            self._set_sleep(False)
-            self._set_energy_saving(False)
-        else:
-            raise Exception("Unknown ModeAction")
-        self._run_command()
-
-    def speed_set(self, speed: SpeedAction):
-        self._set_power(True)
-        self._set_turbo(False)
-        self._set_mute(False)
-        self._set_fan_speed(speed)
-        self._run_command()
-
-    def sleep_set(self, state: bool):
-        current_mode = self._get_mode_from_state()
-        self._set_power(True)
-
-        if current_mode not in (ModeAction.AUTO, ModeAction.FAN):
-            self._set_sleep(state)
-            # TODO: Check if condition is ok
-            if not state:
-                self._set_energy_saving(False)
-        else:
-            self._set_sleep(False)
-        self._run_command()
-
-    def filter_set(self, state: bool):
-        self._set_power(True)
-        self._set_filter(state)
-        self._run_command()
-
-    def light_on(self):
-        self._set_light(True)
-        self._run_command()
-
-    def light_off(self):
-        self._set_light(False)
-        self._run_command()
-
-    def temperature_mode_F2C(self):
-        self._set_temperature_mode(False)
-        self._run_command()
-
-    def temperature_mode_C2F(self):
-        self._set_temperature_mode(True)
-        self._run_command()
 
     def _run_command(self, command: Command):
         data = [
@@ -715,17 +429,3 @@ class AirConditionner:
         data = barray2blist(raw_data)
         return data
 
-
-# MESSAGE:       [122, 122, 33, -43, 24, 0, 0, -95, 10, 10, 0, 0, 4, 72, 0, 0, 0, 0, 0, 0, 0, 0, 107, -69]
-# received data: [122, 122, -43, 33, 28, 0, 0, -93, 10, 10, 24, 5, 0, 4, 72, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -13, -26]
-
-# import time
-# ac = AirConditionner('192.168.10.22')
-# ac.light_on()
-# time.sleep(1)
-# ac.light_off()
-# time.sleep(1)
-
-ac = AirConditionner('192.168.10.22')
-ac._run_get_info()
-ac._get_state()
