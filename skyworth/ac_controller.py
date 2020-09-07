@@ -292,7 +292,13 @@ class AirConditionerController:
     def _set_light(self, state: bool):
         control = 1 if state else 0
         controlbit = (control << 7) % 255
-        self.data4 = (self.data4 & Command.LIGHT) | controlbit
+        if control:
+            #self.data4 = (self.data4 & Command.LIGHT) | controlbit
+            self.data4 |= Command.LIGHT
+        else:
+            self.data4 &= ~Command.LIGHT
+            #self.data4 = (self.data4 & Command.LIGHT) | ~controlbit
+        _logger.debug("data4 = %s [controlbit=%s]", self.data4, controlbit)
 
     def _get_state(self):
         res = {
@@ -314,7 +320,8 @@ class AirConditionerController:
         _logger.info(pformat(res))
         return res
 
-    def _run_command(self, command: Command):
+    def _run_command(self):
+        _logger.info('_run_command')
         data = [
             self.data13, self.data14, self.data1, self.data2, self.data3,
             self.data4, self.data5, self.data6, self.data7, self.data8,
@@ -323,9 +330,10 @@ class AirConditionerController:
         self._send(Query.TYPE_COMMAND, data)
 
     def _run_get_info(self):
+        _logger.info('_run_get_info')
         data = self._send(Query.TYPE_GET_INFO)
         if len(data) >= 2 and (data[0] == data[1] == Datagram.HEADER):
-            _logger.info('Header is correct')
+            # _logger.info('Header is correct')
             # Split data array to get only valid data for one side
             # and crc data only for yhe other side
             data_crc_array = data[-2:]
@@ -338,18 +346,18 @@ class AirConditionerController:
             ]
             # Check if CRC matches:
             if data_crc_array == computed_crc_array:
-                _logger.info('CRC is correct')
+                # _logger.info('CRC is correct')
                 protocol_version = data[8]
                 aircondition_motherboard_version = data[9]
                 rec_cmd = data[7]
                 wifi_cmd = data[10]
 
-                _logger.info(f'protocol_version={protocol_version}')
-                _logger.info(
-                    f'aircondition_motherboard_version={aircondition_motherboard_version}'
-                )
-                _logger.info(f'rec_cmd={rec_cmd}')
-                _logger.info(f'wifi_cmd={wifi_cmd}')
+                # _logger.info(f'protocol_version={protocol_version}')
+                # _logger.info(
+                #     f'aircondition_motherboard_version={aircondition_motherboard_version}'
+                # )
+                # _logger.info(f'rec_cmd={rec_cmd}')
+                # _logger.info(f'wifi_cmd={wifi_cmd}')
 
                 if data[3] == Datagram.DST_ADDRESS:
                     inner_temperature = data[10]
@@ -428,4 +436,3 @@ class AirConditionerController:
 
         data = barray2blist(raw_data)
         return data
-

@@ -44,6 +44,7 @@ class AirConditionerModel:
         self.reset_states()
 
     def reset_states(self):
+        _logger.info('reset_states')
         # Used to save and restore swing state per mode
         self._swing_state = {
             ModeAction.AUTO: 0,
@@ -107,24 +108,44 @@ class AirConditionerModel:
         self._set_fan_speed(speed)
 
     def _save_temperature_set(self):
+        _logger.info('_save_temperature_set')
         current_mode = self.mode_get()
         self._temperature_set[current_mode] = 0
+        _logger.debug(
+            "Temperature set for %s saved to %d",
+            current_mode,
+            self._temperature_set[current_mode],
+        )
+
 
     def _restore_temperature_set(self):
         # Check for getFahrenheitByte in original implementation
         current_mode = self.mode_get()
         temperature = self._temperature_set[current_mode]
+        _logger.debug(
+            "Restore temperature set for %s to %d",
+            current_mode,
+            self._temperature_set[current_mode],
+        )
         self._set_temperature_set(temperature)
 
+    def update_state(self):
+        _logger.info('update_state')
+        self.controller._run_get_info()
+        self.controller._get_state()
+
     def power_on(self):
+        _logger.info('power_on')
         self.controller._set_power(True)
         self.controller._run_command()
 
     def power_off(self):
+        _logger.info('power_off')
         self.controller._set_power(False)
         self.controller._run_command()
 
     def swing_get(self) -> SwingAction:
+        _logger.info('swing_get')
         lr = self.controller._get_swing_left_right()
         ud = self.controller._get_swing_up_down()
         if lr and ud:
@@ -138,6 +159,7 @@ class AirConditionerModel:
         return res
 
     def swing_set(self, action: SwingAction):
+        _logger.info('swing_set')
         self.controller._set_power(True)
         if action == SwingAction.OFF:
             self.controller._set_swing_off()
@@ -153,6 +175,7 @@ class AirConditionerModel:
         self.controller._save_swing_state()
 
     def mode_get(self) -> ModeAction:
+        _logger.info('mode_get')
         mode = self._get_mode()
         if mode == Mode.AUTO:
             res = ModeAction.AUTO
@@ -170,6 +193,7 @@ class AirConditionerModel:
         return res
 
     def mode_set(self, action: ModeAction):
+        _logger.info('mode_set')
         self.controller._set_power(True)
         if action == ModeAction.AUTO:
             self.controller._set_power(True)
@@ -228,6 +252,7 @@ class AirConditionerModel:
         self.controller._run_command()
 
     def speed_set(self, speed: SpeedAction):
+        _logger.info('speed_set')
         self.controller._set_power(True)
         self.controller._set_turbo(False)
         self.controller._set_mute(False)
@@ -235,6 +260,7 @@ class AirConditionerModel:
         self.controller._run_command()
 
     def sleep_set(self, state: bool):
+        _logger.info('sleep_set')
         current_mode = self.controller.mode_get()
         self.controller._set_power(True)
 
@@ -248,22 +274,36 @@ class AirConditionerModel:
         self.controller._run_command()
 
     def filter_set(self, state: bool):
+        _logger.info('filter_set')
         self.controller._set_power(True)
         self.controller._set_filter(state)
         self.controller._run_command()
 
+    def light_get(self) -> ControlAction:
+        _logger.info('light_get')
+        value = self.controller._get_light()
+        return ControlAction.ON if value else ControlAction.OFF
+
     def light_on(self):
+        _logger.info('light_on')
+        self.controller._run_get_info()
         self.controller._set_light(True)
         self.controller._run_command()
+        self.controller._run_get_info()
 
     def light_off(self):
+        _logger.info('light_off')
+        self.controller._run_get_info()
         self.controller._set_light(False)
         self.controller._run_command()
+        self.controller._run_get_info()
 
     def temperature_mode_F2C(self):
+        _logger.info('temperature_mode_F2C')
         self.controller._set_temperature_mode(False)
         self.controller._run_command()
 
     def temperature_mode_C2F(self):
+        _logger.info('temperature_mode_C2F')
         self.controller._set_temperature_mode(True)
         self.controller._run_command()
