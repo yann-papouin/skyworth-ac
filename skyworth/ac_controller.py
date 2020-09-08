@@ -3,6 +3,7 @@
 
 import socket
 import logging
+import math
 
 from enum import IntEnum
 from pprint import pformat
@@ -70,6 +71,18 @@ class Datagram:
     AC_DATA1 = 0x0a  # 10 ?
 
 
+RAW_MIN = 0
+RAW_MAX = 31
+
+
+def ensure_raw_range(value: int) -> int:
+    if value < RAW_MIN:
+        value = RAW_MIN
+    elif value > RAW_MAX:
+        value = RAW_MAX
+    return value
+
+
 def raw_to_fahrenheit(value: int) -> int:
     # Cannot use standard formula since the ac has
     #  its own table: raw_to_celcius(value) * 1.8 + 32
@@ -117,6 +130,16 @@ def raw_to_fahrenheit(value: int) -> int:
     return res
 
 
+def fahrenheit_to_raw(value: int) -> int:
+    raise NotImplemented
+
+
+def celcius_to_raw(value: int) -> int:
+    res = value - 16
+    res = ensure_raw_range(res)
+    return res
+
+
 def raw_to_celcius(value: int) -> int:
     return value + 16
 
@@ -150,9 +173,10 @@ class AirConditionerController:
         return True if res == 1 else False
 
     def _set_power(self, state: bool):
-        control = 1 if state else 0
-        controlbit = (control << 3) % 255
-        self.data1 = (self.data1 & Command.POWER) | controlbit
+        if state:
+            self.data1 |= Command.POWER
+        else:
+            self.data1 &= ~Command.POWER
 
     def _get_turbo(self) -> bool:
         res = (self.data1 & invert(Command.TURBO)) >> 7
@@ -161,9 +185,10 @@ class AirConditionerController:
 
     def _set_turbo(self, state: bool):
         # Also called super mode
-        control = 1 if state else 0
-        controlbit = (control << 7) % 255
-        self.data1 = (self.data1 & Command.TURBO) | controlbit
+        if state:
+            self.data1 |= Command.TURBO
+        else:
+            self.data1 &= ~Command.TURBO
 
     def _get_mode(self):
         res = (self.data1 & invert(Command.MODE)) >> 0
@@ -205,10 +230,14 @@ class AirConditionerController:
         assert (value <= 6)
         controlbit = (value << 4) % 255
         self.data1 = (self.data1 & Command.FAN_SPEED) | controlbit
-        self._save_fan_speed()
 
     def _set_temperature_set(self, temperature: int):
-        self.data2 = (self.data2 & Command.TEMPERATURE_SET) | temperature
+        if self._get_temperature_mode():
+            value = fahrenheit_to_raw(temperature)
+        else:
+            value = celcius_to_raw(temperature)
+        self.data2 = (self.data2 & Command.TEMPERATURE_SET) | value
+        _logger.debug(self.data2)
 
     def _get_temperature_set(self) -> int:
         value = self.data2 & invert(Command.TEMPERATURE_SET)
@@ -224,9 +253,10 @@ class AirConditionerController:
         return True if res == 1 else False
 
     def _set_mute(self, state: bool):
-        control = 1 if state else 0
-        controlbit = (control << 6) % 255
-        self.data2 = (self.data2 & Command.MUTE) | controlbit
+        if state:
+            self.data2 |= Command.MUTE
+        else:
+            self.data2 &= ~Command.MUTE
 
     def _get_temperature_mode(self) -> bool:
         res = (self.data2 & invert(Command.TEMPERATURE_MODE)) >> 5
@@ -243,6 +273,7 @@ class AirConditionerController:
         control = 1 if state else 0
         controlbit = (control << 5) % 255
         self.data2 = (self.data2 & Command.TEMPERATURE_MODE) | controlbit
+        _logger.debug(self.data2)
 
     def _get_auxiliary_heating(self) -> bool:
         res = (self.data4 & invert(Command.AUXILIARY_HEATING)) >> 4
@@ -250,9 +281,10 @@ class AirConditionerController:
         return True if res == 1 else False
 
     def _set_auxiliary_heating(self, state: bool):
-        control = 1 if state else 0
-        controlbit = (control << 4) % 255
-        self.data4 = (self.data4 & Command.AUXILIARY_HEATING) | controlbit
+        if state:
+            self.data4 |= Command.AUXILIARY_HEATING
+        else:
+            self.data4 &= ~Command.AUXILIARY_HEATING
 
     def _get_sleep(self) -> bool:
         res = (self.data4 & invert(Command.SLEEP)) >> 1
@@ -260,9 +292,10 @@ class AirConditionerController:
         return True if res == 1 else False
 
     def _set_sleep(self, state: bool):
-        control = 1 if state else 0
-        controlbit = (control << 1) % 255
-        self.data4 = (self.data4 & Command.SLEEP) | controlbit
+        if state:
+            self.data4 |= Command.SLEEP
+        else:
+            self.data4 &= ~Command.SLEEP
 
     def _get_energy_saving(self) -> bool:
         res = (self.data4 & invert(Command.ENERGY_SAVING)) >> 0
@@ -271,8 +304,10 @@ class AirConditionerController:
 
     def _set_energy_saving(self, state: bool):
         control = 1 if state else 0
-        controlbit = (control << 0) % 255
-        self.data4 = (self.data4 & Command.ENERGY_SAVING) | controlbit
+        if control:
+            self.data4 |= Command.ENERGY_SAVING
+        else:
+            self.data4 &= ~Command.ENERGY_SAVING
 
     def _get_filter(self) -> bool:
         res = (self.data4 & invert(Command.FILTER_PM25)) >> 6
@@ -280,9 +315,10 @@ class AirConditionerController:
         return True if res == 1 else False
 
     def _set_filter(self, state: bool):
-        control = 1 if state else 0
-        controlbit = (control << 6) % 255
-        self.data4 = (self.data4 & Command.FILTER_PM25) | controlbit
+        if state:
+            self.data4 |= Command.FILTER_PM25
+        else:
+            self.data4 &= ~Command.FILTER_PM25
 
     def _get_light(self) -> bool:
         res = (self.data4 & invert(Command.LIGHT)) >> 7
@@ -290,15 +326,10 @@ class AirConditionerController:
         return True if res == 1 else False
 
     def _set_light(self, state: bool):
-        control = 1 if state else 0
-        controlbit = (control << 7) % 255
-        if control:
-            #self.data4 = (self.data4 & Command.LIGHT) | controlbit
+        if state:
             self.data4 |= Command.LIGHT
         else:
             self.data4 &= ~Command.LIGHT
-            #self.data4 = (self.data4 & Command.LIGHT) | ~controlbit
-        _logger.debug("data4 = %s [controlbit=%s]", self.data4, controlbit)
 
     def _get_state(self):
         res = {

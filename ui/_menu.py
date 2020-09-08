@@ -18,7 +18,9 @@ import os
 import re
 import subprocess
 import sys
+
 from builtins import IndexError
+from enum import IntEnum
 
 from colorama import Back, Fore, Style
 
@@ -33,10 +35,13 @@ ACTIONS = {}
 TITLE = 'Menu'
 INPUT_PREFIX = ''
 
+class ActionWaitMode(IntEnum):
+    AUTO = 0
+    NO_WAIT = 1
+
 pre_action_fn = None
 post_action_fn = None
 last_choice = None
-
 
 # Clear console
 def clear():
@@ -71,9 +76,15 @@ def main_menu(actions, wait=False):
 
     try:
         choice = input("\n {0}>>  ".format(INPUT_PREFIX))
-        exec_menu(actions, choice)
-        # Recreate menu from ACTIONS if an updated is needed
-        main_menu(actions=ACTIONS, wait=True)
+        selection = exec_menu(actions, choice)
+        # Recreate menu from ACTIONS if an update is needed
+
+        wait_execute = True
+        if selection and len(selection) > 5:
+            if selection[5] == ActionWaitMode.NO_WAIT:
+                wait_execute = False
+
+        main_menu(actions=ACTIONS, wait=wait_execute)
     except KeyboardInterrupt as e:
         print("\n")
         exit()
@@ -126,6 +137,7 @@ def exec_action(name, choice, actions=None):
 
 
 def exec_menu(actions, choice, cli=False):
+    selection = None
     if not cli:
         clear()
     fn = None
@@ -134,10 +146,11 @@ def exec_menu(actions, choice, cli=False):
         pass
     else:
         try:
+            selection = actions[ch]
             print(Fore.GREEN)
-            print("Execute: {0}".format(actions[ch][0]))
+            print("Execute: {0}".format(selection[0]))
             print(Style.RESET_ALL)
-            fn = actions[ch][1]
+            fn = selection[1]
         except (KeyError, IndexError) as e:
             if cli:
                 print(
@@ -151,7 +164,7 @@ def exec_menu(actions, choice, cli=False):
             exec_action('pre', choice, actions)
             fn()
             exec_action('post', choice, actions)
-    return
+    return selection
 
 
 def show_menu(parse_args=False):

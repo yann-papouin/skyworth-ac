@@ -89,7 +89,7 @@ class AirConditionerModel:
     def _save_fan_speed(self):
         # saveWindSpeed
         current_mode = self.mode_get()
-        self._fan_speed[current_mode] = self._get_fan_speed()
+        self._fan_speed[current_mode] = self.controller._get_fan_speed()
         _logger.debug(
             "Fan speed for %s saved to %d",
             current_mode,
@@ -105,18 +105,17 @@ class AirConditionerModel:
             current_mode,
             self._swing_state[current_mode],
         )
-        self._set_fan_speed(speed)
+        self.controller._set_fan_speed(speed)
 
     def _save_temperature_set(self):
         _logger.info('_save_temperature_set')
         current_mode = self.mode_get()
-        self._temperature_set[current_mode] = 0
+        self._temperature_set[current_mode] = self.controller._get_temperature_set()
         _logger.debug(
             "Temperature set for %s saved to %d",
             current_mode,
             self._temperature_set[current_mode],
         )
-
 
     def _restore_temperature_set(self):
         # Check for getFahrenheitByte in original implementation
@@ -127,12 +126,17 @@ class AirConditionerModel:
             current_mode,
             self._temperature_set[current_mode],
         )
-        self._set_temperature_set(temperature)
+        self.controller._set_temperature_set(temperature)
 
     def update_state(self):
         _logger.info('update_state')
         self.controller._run_get_info()
         self.controller._get_state()
+
+    def power_get(self):
+        _logger.info('power_get')
+        value = self.controller._get_power()
+        return ControlAction.ON if value else ControlAction.OFF
 
     def power_on(self):
         _logger.info('power_on')
@@ -142,6 +146,21 @@ class AirConditionerModel:
     def power_off(self):
         _logger.info('power_off')
         self.controller._set_power(False)
+        self.controller._run_command()
+
+    def mute_get(self):
+        _logger.info('mute_get')
+        value = self.controller._get_mute()
+        return ControlAction.ON if value else ControlAction.OFF
+
+    def mute_on(self):
+        _logger.info('mute_on')
+        self.controller._set_mute(True)
+        self.controller._run_command()
+
+    def mute_off(self):
+        _logger.info('mute_off')
+        self.controller._set_mute(False)
         self.controller._run_command()
 
     def swing_get(self) -> SwingAction:
@@ -176,7 +195,7 @@ class AirConditionerModel:
 
     def mode_get(self) -> ModeAction:
         _logger.info('mode_get')
-        mode = self._get_mode()
+        mode = self.controller._get_mode()
         if mode == Mode.AUTO:
             res = ModeAction.AUTO
         elif mode == Mode.COOL:
@@ -199,30 +218,30 @@ class AirConditionerModel:
             self.controller._set_power(True)
             self.controller._set_turbo(False)
             self.controller._set_mode(Mode.AUTO)
-            self.controller._restore_fan_speed()
-            self.controller._restore_temperature_set()
+            self._restore_fan_speed()
+            self._restore_temperature_set()
             self.controller._set_mute(False)
-            self.controller._restore_swing_state()
+            self._restore_swing_state()
             self.controller._set_auxiliary_heating(False)
             self.controller._set_sleep(False)
             self.controller._set_energy_saving(False)
         elif action == ModeAction.COOL:
             self.controller._set_power(True)
             self.controller._set_mode(Mode.COOL)
-            self.controller._restore_fan_speed()
-            self.controller._restore_temperature_set()
+            self._restore_fan_speed()
+            self._restore_temperature_set()
             self.controller._set_mute(False)
-            self.controller._restore_swing_state()
+            self._restore_swing_state()
             self.controller._set_auxiliary_heating(False)
             self.controller._set_sleep(False)
             self.controller._set_energy_saving(False)
         elif action == ModeAction.HEAT:
             self.controller._set_power(True)
             self.controller._set_mode(Mode.HEAT)
-            self.controller._restore_fan_speed()
-            self.controller._restore_temperature_set()
+            self._restore_fan_speed()
+            self._restore_temperature_set()
             self.controller._set_mute(False)
-            self.controller._restore_swing_state()
+            self._restore_swing_state()
             self.controller._set_auxiliary_heating(True)
             self.controller._set_sleep(False)
             self.controller._set_energy_saving(False)
@@ -231,25 +250,41 @@ class AirConditionerModel:
             self.controller._set_mode(Mode.DEHUMIDIFIER)
             self.controller._set_turbo(False)
             self.controller._set_fan_speed(1)
-            self.controller._restore_temperature_set()
+            self._restore_temperature_set()
             self.controller._set_mute(False)
-            self.controller._restore_swing_state()
+            self._restore_swing_state()
             self.controller._set_auxiliary_heating(False)
             self.controller._set_sleep(False)
             self.controller._set_energy_saving(False)
         elif action == ModeAction.FAN:
             self.controller._set_power(True)
             self.controller._set_mode(Mode.FAN)
-            self.controller._restore_fan_speed()
-            self.controller._restore_temperature_set()
+            self._restore_fan_speed()
+            self._restore_temperature_set()
             self.controller._set_mute(False)
-            self.controller._restore_swing_state()
+            self._restore_swing_state()
             self.controller._set_auxiliary_heating(False)
             self.controller._set_sleep(False)
             self.controller._set_energy_saving(False)
         else:
             raise Exception("Unknown ModeAction")
         self.controller._run_command()
+
+    def temperature_set_get(self) -> int:
+        _logger.info('temperature_set_get')
+        temperature_set = self.controller._get_temperature_set()
+        return temperature_set
+
+    def temperature_set_set(self, value: int):
+        _logger.info('temperature_set_set')
+        self.controller._set_temperature_set(value)
+        self.controller._run_command()
+        self._save_temperature_set()
+
+    def speed_get(self) -> SpeedAction:
+        _logger.info('speed_get')
+        speed = self.controller._get_fan_speed()
+        return SpeedAction(speed)
 
     def speed_set(self, speed: SpeedAction):
         _logger.info('speed_set')
@@ -258,6 +293,7 @@ class AirConditionerModel:
         self.controller._set_mute(False)
         self.controller._set_fan_speed(speed)
         self.controller._run_command()
+        self._save_fan_speed()
 
     def sleep_set(self, state: bool):
         _logger.info('sleep_set')
@@ -273,10 +309,37 @@ class AirConditionerModel:
             self.controller._set_sleep(False)
         self.controller._run_command()
 
+    def filter_get(self) -> ControlAction:
+        _logger.info('filter_get')
+        value = self.controller._get_filter()
+        return ControlAction(value)
+
     def filter_set(self, state: bool):
         _logger.info('filter_set')
         self.controller._set_power(True)
         self.controller._set_filter(state)
+        self.controller._run_command()
+
+    def energy_saving_get(self) -> ControlAction:
+        _logger.info('energy_saving_get')
+        value = self.controller._get_energy_saving()
+        return ControlAction(value)
+
+    def energy_saving_set(self, state: bool):
+        _logger.info('energy_saving_set')
+        self.controller._set_power(True)
+        self.controller._set_energy_saving(state)
+        self.controller._run_command()
+
+    def turbo_get(self) -> ControlAction:
+        _logger.info('turbo_get')
+        value = self.controller._get_turbo()
+        return ControlAction(value)
+
+    def turbo_set(self, state: bool):
+        _logger.info('turbo_set')
+        self.controller._set_power(True)
+        self.controller._set_turbo(state)
         self.controller._run_command()
 
     def light_get(self) -> ControlAction:
