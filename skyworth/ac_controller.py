@@ -274,7 +274,6 @@ class AirConditionerController:
         control = 1 if state else 0
         controlbit = (control << 5) % 255
         self.data.d2 = (self.data.d2 & Command.TEMPERATURE_MODE) | controlbit
-        _logger.debug(self.data.d2)
 
     def _get_auxiliary_heating(self) -> bool:
         res = (self.data.d4 & invert(Command.AUXILIARY_HEATING)) >> 4

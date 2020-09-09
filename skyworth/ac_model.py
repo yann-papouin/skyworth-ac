@@ -3,6 +3,7 @@
 
 import logging
 from enum import IntEnum
+from symbol import power
 from .ac_controller import AirConditionerController, Mode
 
 _logger = logging.getLogger(__name__)
@@ -11,6 +12,10 @@ _logger = logging.getLogger(__name__)
 class ControlAction(IntEnum):
     OFF = 0
     ON = 1
+
+    @classmethod
+    def to_bool(action) -> bool:
+        return (action == ControlAction.ON)
 
 
 class SwingAction(IntEnum):
@@ -41,10 +46,10 @@ class SpeedAction(IntEnum):
 class AirConditionerModel:
     def __init__(self, controller: AirConditionerController) -> None:
         self.controller = controller
-        self.reset_states()
+        self._reset_states()
 
-    def reset_states(self):
-        _logger.info('reset_states')
+    def _reset_states(self):
+        _logger.info('_reset_states')
         # Used to save and restore swing state per mode
         self._swing_state = {
             ModeAction.AUTO: 0,
@@ -110,7 +115,8 @@ class AirConditionerModel:
     def _save_temperature_set(self):
         _logger.info('_save_temperature_set')
         current_mode = self.mode_get()
-        self._temperature_set[current_mode] = self.controller._get_temperature_set()
+        self._temperature_set[current_mode
+                             ] = self.controller._get_temperature_set()
         _logger.debug(
             "Temperature set for %s saved to %d",
             current_mode,
@@ -133,37 +139,32 @@ class AirConditionerModel:
         self.controller._run_get_info()
         self.controller._get_state()
 
-    def power_get(self):
+    @property
+    def power(self) -> ControlAction:
         _logger.info('power_get')
         value = self.controller._get_power()
         return ControlAction.ON if value else ControlAction.OFF
 
-    def power_on(self):
-        _logger.info('power_on')
-        self.controller._set_power(True)
+    @power.setter
+    def power(self, value: ControlAction):
+        _logger.info('power_set')
+        self.controller._set_power(ControlAction.to_bool(value))
         self.controller._run_command()
 
-    def power_off(self):
-        _logger.info('power_off')
-        self.controller._set_power(False)
-        self.controller._run_command()
-
-    def mute_get(self):
+    @property
+    def mute(self) -> ControlAction:
         _logger.info('mute_get')
         value = self.controller._get_mute()
         return ControlAction.ON if value else ControlAction.OFF
 
-    def mute_on(self):
-        _logger.info('mute_on')
-        self.controller._set_mute(True)
+    @mute.setter
+    def mute(self, value: ControlAction):
+        _logger.info('mute_set')
+        self.controller._set_mute(ControlAction.to_bool(value))
         self.controller._run_command()
 
-    def mute_off(self):
-        _logger.info('mute_off')
-        self.controller._set_mute(False)
-        self.controller._run_command()
-
-    def swing_get(self) -> SwingAction:
+    @property
+    def swing(self) -> SwingAction:
         _logger.info('swing_get')
         lr = self.controller._get_swing_left_right()
         ud = self.controller._get_swing_up_down()
@@ -177,7 +178,8 @@ class AirConditionerModel:
             res = SwingAction.OFF
         return res
 
-    def swing_set(self, action: SwingAction):
+    @swing.setter
+    def swing(self, action: SwingAction):
         _logger.info('swing_set')
         self.controller._set_power(True)
         if action == SwingAction.OFF:
@@ -193,7 +195,8 @@ class AirConditionerModel:
             self.controller._set_swing_left_right(True)
         self.controller._save_swing_state()
 
-    def mode_get(self) -> ModeAction:
+    @property
+    def mode(self) -> ModeAction:
         _logger.info('mode_get')
         mode = self.controller._get_mode()
         if mode == Mode.AUTO:
@@ -211,7 +214,8 @@ class AirConditionerModel:
             res = ModeAction.AUTO
         return res
 
-    def mode_set(self, action: ModeAction):
+    @mode.setter
+    def mode(self, action: ModeAction):
         _logger.info('mode_set')
         self.controller._set_power(True)
         if action == ModeAction.AUTO:
@@ -270,23 +274,27 @@ class AirConditionerModel:
             raise Exception("Unknown ModeAction")
         self.controller._run_command()
 
-    def temperature_set_get(self) -> int:
+    @property
+    def temperature_set(self) -> int:
         _logger.info('temperature_set_get')
         temperature_set = self.controller._get_temperature_set()
         return temperature_set
 
-    def temperature_set_set(self, value: int):
+    @temperature_set.setter
+    def temperature_set(self, value: int):
         _logger.info('temperature_set_set')
         self.controller._set_temperature_set(value)
         self.controller._run_command()
         self._save_temperature_set()
 
-    def speed_get(self) -> SpeedAction:
+    @property
+    def speed(self) -> SpeedAction:
         _logger.info('speed_get')
         speed = self.controller._get_fan_speed()
         return SpeedAction(speed)
 
-    def speed_set(self, speed: SpeedAction):
+    @speed.setter
+    def speed(self, speed: SpeedAction):
         _logger.info('speed_set')
         self.controller._set_power(True)
         self.controller._set_turbo(False)
@@ -295,69 +303,77 @@ class AirConditionerModel:
         self.controller._run_command()
         self._save_fan_speed()
 
-    def sleep_set(self, state: bool):
+    @property
+    def sleep(self) -> ControlAction:
+        _logger.info('sleep_get')
+        value = self.controller._get_sleep()
+        return ControlAction.ON if value else ControlAction.OFF
+
+    @sleep.setter
+    def sleep(self, value: ControlAction):
         _logger.info('sleep_set')
         current_mode = self.controller.mode_get()
         self.controller._set_power(True)
 
         if current_mode not in (ModeAction.AUTO, ModeAction.FAN):
-            self.controller._set_sleep(state)
+            self.controller._set_sleep(ControlAction.to_bool(value))
             # TODO: Check if condition is ok
-            if not state:
+            if not value:
                 self.controller._set_energy_saving(False)
         else:
-            self.controller._set_sleep(False)
+            self.controller._set_sleep(ControlAction.to_bool(ControlAction.OFF))
         self.controller._run_command()
 
-    def filter_get(self) -> ControlAction:
-        _logger.info('filter_get')
+    @property
+    def filter_pm(self) -> ControlAction:
+        _logger.info('filter_pm_get')
         value = self.controller._get_filter()
         return ControlAction(value)
 
-    def filter_set(self, state: bool):
-        _logger.info('filter_set')
+    @filter_pm.setter
+    def filter_pm(self, value: ControlAction):
+        _logger.info('filter_pm_set')
         self.controller._set_power(True)
-        self.controller._set_filter(state)
+        self.controller._set_filter(ControlAction.to_bool(value))
         self.controller._run_command()
 
-    def energy_saving_get(self) -> ControlAction:
+    @property
+    def energy_saving(self) -> ControlAction:
         _logger.info('energy_saving_get')
         value = self.controller._get_energy_saving()
         return ControlAction(value)
 
-    def energy_saving_set(self, state: bool):
+    @energy_saving.setter
+    def energy_saving(self, value: ControlAction):
         _logger.info('energy_saving_set')
         self.controller._set_power(True)
-        self.controller._set_energy_saving(state)
+        self.controller._set_energy_saving(ControlAction.to_bool(value))
         self.controller._run_command()
 
-    def turbo_get(self) -> ControlAction:
+    @property
+    def turbo(self) -> ControlAction:
         _logger.info('turbo_get')
         value = self.controller._get_turbo()
         return ControlAction(value)
 
-    def turbo_set(self, state: bool):
+    @turbo.setter
+    def turbo(self, value: ControlAction):
         _logger.info('turbo_set')
         self.controller._set_power(True)
-        self.controller._set_turbo(state)
+        self.controller._set_turbo(ControlAction.to_bool(value))
         self.controller._run_command()
 
-    def light_get(self) -> ControlAction:
+    @property
+    def light(self) -> ControlAction:
         _logger.info('light_get')
         value = self.controller._get_light()
         return ControlAction.ON if value else ControlAction.OFF
 
-    def light_on(self):
-        _logger.info('light_on')
+    @light.setter
+    def light(self, value: ControlAction):
+        _logger.info('light_set')
         self.controller._run_get_info()
-        self.controller._set_light(True)
-        self.controller._run_command()
-        self.controller._run_get_info()
-
-    def light_off(self):
-        _logger.info('light_off')
-        self.controller._run_get_info()
-        self.controller._set_light(False)
+        self.controller._set_light(ControlAction.to_bool(value))
         self.controller._run_command()
         self.controller._run_get_info()
 
