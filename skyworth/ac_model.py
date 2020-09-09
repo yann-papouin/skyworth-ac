@@ -43,6 +43,15 @@ class SpeedAction(IntEnum):
     SPEED_6 = 6
 
 
+class TemperatureMode(IntEnum):
+    CELSIUS = 0
+    FAHRENHEIT = 1
+
+    @classmethod
+    def to_bool(action) -> bool:
+        return (action == TemperatureMode.FAHRENHEIT)
+
+
 class AirConditionerModel:
     def __init__(self, controller: AirConditionerController) -> None:
         self.controller = controller
@@ -377,12 +386,113 @@ class AirConditionerModel:
         self.controller._run_command()
         self.controller._run_get_info()
 
-    def temperature_mode_F2C(self):
-        _logger.info('temperature_mode_F2C')
-        self.controller._set_temperature_mode(False)
+    @property
+    def temperature_mode(self) -> TemperatureMode:
+        _logger.info('temperature_mode_get')
+        value = self.controller._get_temperature_mode()
+        return TemperatureMode.FAHRENHEIT if value else TemperatureMode.CELSIUS
+
+    @temperature_mode.setter
+    def temperature_mode(self, value: TemperatureMode):
+        _logger.info('temperature_mode_set')
+        self.controller._set_temperature_mode(TemperatureMode.to_bool(value))
         self.controller._run_command()
 
-    def temperature_mode_C2F(self):
-        _logger.info('temperature_mode_C2F')
-        self.controller._set_temperature_mode(True)
-        self.controller._run_command()
+
+###################################################################################
+
+    def power_on(self):
+        self.power = ControlAction.ON
+
+    def power_off(self):
+        self.power = ControlAction.OFF
+
+    def mute_on(self):
+        self.mute = ControlAction.ON
+
+    def mute_off(self):
+        self.mute = ControlAction.OFF
+
+    def sleep_on(self):
+        self.sleep = ControlAction.ON
+
+    def sleep_off(self):
+        self.sleep = ControlAction.OFF
+
+    def filter_pm_on(self):
+        self.filter_pm = ControlAction.ON
+
+    def filter_pm_off(self):
+        self.filter_pm = ControlAction.OFF
+
+    def energy_saving_on(self):
+        self.energy_saving = ControlAction.ON
+
+    def energy_saving_off(self):
+        self.energy_saving = ControlAction.OFF
+
+    def turbo_on(self):
+        self.turbo = ControlAction.ON
+
+    def turbo_off(self):
+        self.turbo = ControlAction.OFF
+
+    def light_on(self):
+        self.light = ControlAction.ON
+
+    def light_off(self):
+        self.light = ControlAction.OFF
+
+    def swing_off(self):
+        self.swing = SwingAction.OFF
+
+    def swing_left_right(self):
+        self.swing = SwingAction.LEFT_RIGHT
+
+    def swing_up_down(self):
+        self.swing = SwingAction.UP_DOWN
+
+    def swing_all(self):
+        self.swing = SwingAction.ALL
+
+    def mode_auto(self):
+        self.mode = ModeAction.AUTO
+
+    def mode_cool(self):
+        self.mode = ModeAction.COOL
+
+    def mode_heat(self):
+        self.mode = ModeAction.HEAT
+
+    def mode_dehumidifier(self):
+        self.mode = ModeAction.DEHUMIDIFIER
+
+    def mode_fan(self):
+        self.mode = ModeAction.FAN
+
+    def speed_auto(self):
+        self.speed = SpeedAction.AUTO
+
+    def speed_1(self):
+        self.speed = SpeedAction.SPEED_1
+
+    def speed_2(self):
+        self.speed = SpeedAction.SPEED_2
+
+    def speed_3(self):
+        self.speed = SpeedAction.SPEED_3
+
+    def speed_4(self):
+        self.speed = SpeedAction.SPEED_4
+
+    def speed_5(self):
+        self.speed = SpeedAction.SPEED_5
+
+    def speed_6(self):
+        self.speed = SpeedAction.SPEED_6
+
+    def temperature_mode_celsius(self):
+        self.temperature_mode = TemperatureMode.CELSIUS
+
+    def temperature_mode_fahrenheit(self):
+        self.temperature_mode = TemperatureMode.FAHRENHEIT
