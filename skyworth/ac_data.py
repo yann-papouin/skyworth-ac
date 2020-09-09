@@ -19,35 +19,43 @@ class AirConditionerData:
         self._data = [0 for x in range(12)]
 
     @classmethod
-    def _debug_value(cls, property_name, value):
-        _logger.debug(
-            '%s -> byte=%3d signed-byte=% 4d hex=0x%02x binary=%s',
+    def _debug_value(cls, property_name, value, symbol='->'):
+        res = '%s %s byte= %3d  signed-byte= % 4d  hex=0x%02x  binary=%s' % (
             property_name,
+            symbol,
             value,
             byte2sbyte(value),
             value,
             format(value, '#010b'),
         )
+        # Log to debug only if property_name is set
+        if property_name.strip():
+            _logger.debug(res)
+        return res
 
     def get_debug_data(self):
+        SYMBOL = "==="
         res = {
-            'd13': AirConditionerData._debug_value('d13', self.d13),
-            'd14': AirConditionerData._debug_value('d14', self.d14),
-            'd1': AirConditionerData._debug_value('d1', self.d1),
-            'd2': AirConditionerData._debug_value('d2', self.d2),
-            'd3': AirConditionerData._debug_value('d3', self.d3),
-            'd4': AirConditionerData._debug_value('d4', self.d4),
-            'd5': AirConditionerData._debug_value('d5', self.d5),
-            'd6': AirConditionerData._debug_value('d6', self.d6),
-            'd7': AirConditionerData._debug_value('d7', self.d7),
-            'd8': AirConditionerData._debug_value('d8', self.d8),
-            'd9': AirConditionerData._debug_value('d9', self.d9),
-            'd10': AirConditionerData._debug_value('d10', self.d10),
+            'd13': AirConditionerData._debug_value('', self.d13,SYMBOL),
+            'd14': AirConditionerData._debug_value('', self.d14,SYMBOL),
+            'd1': AirConditionerData._debug_value(' ', self.d1,SYMBOL),
+            'd2': AirConditionerData._debug_value(' ', self.d2,SYMBOL),
+            'd3': AirConditionerData._debug_value(' ', self.d3,SYMBOL),
+            'd4': AirConditionerData._debug_value(' ', self.d4,SYMBOL),
+            'd5': AirConditionerData._debug_value(' ', self.d5,SYMBOL),
+            'd6': AirConditionerData._debug_value(' ', self.d6,SYMBOL),
+            'd7': AirConditionerData._debug_value(' ', self.d7,SYMBOL),
+            'd8': AirConditionerData._debug_value(' ', self.d8,SYMBOL),
+            'd9': AirConditionerData._debug_value(' ', self.d9,SYMBOL),
+            'd10': AirConditionerData._debug_value('', self.d10,SYMBOL),
         }
         return res
 
     def _set_byte_value(self, property_name, index, value):
         if self._data[index] != value:
+            AirConditionerData._debug_value(
+                property_name, self._data[index], '=='
+            )
             self._data[index] = value
             AirConditionerData._debug_value(property_name, value)
 

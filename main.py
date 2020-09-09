@@ -7,6 +7,7 @@ import json
 import argparse
 import logging
 import time
+from time import sleep
 
 import skyworth.ac_controller
 import skyworth.ac_model
@@ -103,109 +104,118 @@ def rebuild_menu(advanced_menu=False):
             '1':
                 (
                     "Update state",
-                    lambda: ac.model.update_state(),
+                    lambda: rebuild_menu(),
                     0,
                     '',
                     '-------------------------------',
                 ),
             '10':
                 (
-                    "Set temperature = %d" % ac.model.temperature_set,
+                    "d2) Set temperature = %d" % ac.model.temperature_set,
                     lambda: interactive_temperature_set(ac),
                 ),
             '11a':
                 (
-                    "Switch temperature mode to CELSIUS",
+                    "d2) Switch temperature mode to CELSIUS",
                     lambda: ac.model.temperature_mode_celsius(),
                     0,
                     "Mode = %s" % ac.model.temperature_mode,
                 ),
             '11b':
                 (
-                    "Switch temperature mode to FAHRENHEIT",
+                    "d2) Switch temperature mode to FAHRENHEIT",
                     lambda: ac.model.temperature_mode_fahrenheit(),
                     0,
                 ),
             '1a':
                 (
-                    "Switch power ON",
+                    "d1) Switch power ON",
                     lambda: ac.model.power_on(),
                     0,
                     "Power = %s" % ac.model.power,
                 ),
             '1b': (
-                "Switch power OFF",
+                "d1) Switch power OFF",
                 lambda: ac.model.power_off(),
                 0,
             ),
             '2a':
                 (
-                    "Switch light ON",
+                    "d4) Switch light ON",
                     lambda: ac.model.light_on(),
                     0,
                     "Light = %s" % ac.model.light,
                 ),
             '2b': (
-                "Switch light OFF",
+                "d4) Switch light OFF",
                 lambda: ac.model.light_off(),
+                0,
+            ),
+            '22a':
+                (
+                    "d4) Switch sleep ON",
+                    lambda: ac.model.sleep_on(),
+                    0,
+                    "Sleep = %s" % ac.model.sleep,
+                ),
+            '22b': (
+                "d4) Switch sleep OFF",
+                lambda: ac.model.sleep_off(),
                 0,
             ),
             '3a':
                 (
-                    "Switch mute ON",
+                    "d2) Switch mute ON",
                     lambda: ac.model.mute_on(),
                     0,
                     "Mute = %s" % ac.model.mute,
                 ),
             '3b': (
-                "Switch mute OFF",
+                "d2) Switch mute OFF",
                 lambda: ac.model.mute_off(),
                 0,
             ),
             '4a':
                 (
-                    "Switch PM 2.5 filter ON",
+                    "d4) Switch PM 2.5 filter ON",
                     lambda: ac.model.filter_pm_on(),
                     0,
                     "PM 2.5 filter = %s" % ac.model.filter_pm,
                 ),
             '4b':
                 (
-                    "Switch PM 2.5 filter OFF",
+                    "d4) Switch PM 2.5 filter OFF",
                     lambda: ac.model.filter_pm_off(),
                     0,
                 ),
             '5a':
                 (
-                    "Switch energy saving ON",
-                    lambda:
-                    ac.model.energy_saving_on(),
+                    "d4) Switch energy saving ON",
+                    lambda: ac.model.energy_saving_on(),
                     0,
                     "Energy saving = %s" % ac.model.energy_saving,
                 ),
             '5b':
                 (
-                    "Switch energy saving OFF",
-                    lambda:
-                    ac.model.energy_saving_off(),
+                    "d4) Switch energy saving OFF",
+                    lambda: ac.model.energy_saving_off(),
                     0,
                 ),
             '6a':
                 (
-                    "Switch turbo ON",
+                    "d1) Switch turbo ON",
                     lambda: ac.model.turbo_on(),
                     0,
                     "Turbo = %s" % ac.model.turbo,
                 ),
-            '6b':
-                (
-                    "Switch turbo OFF",
-                    lambda: ac.model.turbo_off(),
-                    0,
-                ),
+            '6b': (
+                "d1) Switch turbo OFF",
+                lambda: ac.model.turbo_off(),
+                0,
+            ),
             '7':
                 (
-                    "Mode: %s" % ac.model.mode,
+                    "d1) Mode: %s" % ac.model.mode,
                     lambda: rebuild_menu('mode'),
                     0,
                     '-------------------------------',
@@ -214,7 +224,7 @@ def rebuild_menu(advanced_menu=False):
                 ),
             '8':
                 (
-                    "Speed: %s" % ac.model.speed,
+                    "d1) Speed: %s" % ac.model.speed,
                     lambda: rebuild_menu('speed'),
                     0,
                     '',
@@ -223,7 +233,7 @@ def rebuild_menu(advanced_menu=False):
                 ),
             '9':
                 (
-                    "Swing: %s" % ac.model.swing,
+                    "d3) Swing: %s" % ac.model.swing,
                     lambda: rebuild_menu('swing'),
                     0,
                     '',
@@ -244,41 +254,34 @@ def rebuild_menu(advanced_menu=False):
                     '',
                     _menu.ActionWaitMode.NO_WAIT,
                 ),
-            '1':
-                (
-                    "Speed 1",
-                    lambda: ac.model.speed_1(),
-                ),
-            '2':
-                (
-                    "Speed 2",
-                    lambda: ac.model.speed_2(),
-                ),
-            '3':
-                (
-                    "Speed 3",
-                    lambda: ac.model.speed_3(),
-                ),
-            '4':
-                (
-                    "Speed 4",
-                    lambda: ac.model.speed_4(),
-                ),
-            '5':
-                (
-                    "Speed 5",
-                    lambda: ac.model.speed_5(),
-                ),
-            '6':
-                (
-                    "Speed 6",
-                    lambda: ac.model.speed_6(),
-                ),
-            '7':
-                (
-                    "Speed Auto",
-                    lambda: ac.model.speed_auto(),
-                ),
+            '1': (
+                "Speed 1",
+                lambda: ac.model.speed_1(),
+            ),
+            '2': (
+                "Speed 2",
+                lambda: ac.model.speed_2(),
+            ),
+            '3': (
+                "Speed 3",
+                lambda: ac.model.speed_3(),
+            ),
+            '4': (
+                "Speed 4",
+                lambda: ac.model.speed_4(),
+            ),
+            '5': (
+                "Speed 5",
+                lambda: ac.model.speed_5(),
+            ),
+            '6': (
+                "Speed 6",
+                lambda: ac.model.speed_6(),
+            ),
+            '7': (
+                "Speed Auto",
+                lambda: ac.model.speed_auto(),
+            ),
         }
     elif advanced_menu == 'mode':
         _menu.TITLE = _menu.ACTIONS[_menu.last_choice][0]
@@ -292,27 +295,22 @@ def rebuild_menu(advanced_menu=False):
                     '',
                     _menu.ActionWaitMode.NO_WAIT,
                 ),
-            '1':
-                (
-                    "Auto",
-                    lambda: ac.model.mode_auto(),
-                ),
-            '2':
-                (
-                    "Cool",
-                    lambda: ac.model.mode_cool(),
-                ),
-            '3':
-                (
-                    "Heat",
-                    lambda: ac.model.mode_heat(),
-                ),
-            '4':
-                (
-                    "Dehumidifier",
-                    lambda:
-                    ac.model.mode_dehumidifier(),
-                ),
+            '1': (
+                "Auto",
+                lambda: ac.model.mode_auto(),
+            ),
+            '2': (
+                "Cool",
+                lambda: ac.model.mode_cool(),
+            ),
+            '3': (
+                "Heat",
+                lambda: ac.model.mode_heat(),
+            ),
+            '4': (
+                "Dehumidifier",
+                lambda: ac.model.mode_dehumidifier(),
+            ),
             '5': (
                 "Fan",
                 lambda: ac.model.mode_fan(),
@@ -331,27 +329,22 @@ def rebuild_menu(advanced_menu=False):
                     '',
                     _menu.ActionWaitMode.NO_WAIT,
                 ),
-            '1':
-                (
-                    "Off",
-                    lambda: ac.model.swing_off(),
-                ),
-            '2':
-                (
-                    "Left/Right",
-                    lambda:
-                     ac.model.swing_left_right(),
-                ),
-            '3':
-                (
-                    "Up/Down",
-                    lambda:  ac.model.swing_up_down(),
-                ),
-            '4':
-                (
-                    "All/Left/Right/Up/Down",
-                    lambda:  ac.model.swing_all(),
-                ),
+            '1': (
+                "Off",
+                lambda: ac.model.swing_off(),
+            ),
+            '2': (
+                "Left/Right",
+                lambda: ac.model.swing_left_right(),
+            ),
+            '3': (
+                "Up/Down",
+                lambda: ac.model.swing_up_down(),
+            ),
+            '4': (
+                "All/Left/Right/Up/Down",
+                lambda: ac.model.swing_all(),
+            ),
         }
 
 
@@ -389,6 +382,8 @@ if __name__ == "__main__":
 
     def post(choice, description):
         pass
+        # if choice not in ('7', '8', '9'):
+        #     rebuild_menu()
 
     _menu.pre_action_fn = pre
     _menu.post_action_fn = post

@@ -6,7 +6,6 @@ import logging
 import math
 
 from enum import IntEnum
-from pprint import pformat
 
 from crcmod.predefined import mkPredefinedCrcFun
 from .ac_data import AirConditionerData
@@ -176,9 +175,9 @@ class AirConditionerController:
 
     def _set_power(self, state: bool):
         if state:
-            self.data.d1 |= Command.POWER
+            self.data.d1 |= invert(Command.POWER)
         else:
-            self.data.d1 &= ~Command.POWER
+            self.data.d1 &= ~invert(Command.POWER)
 
     def _get_turbo(self) -> bool:
         res = (self.data.d1 & invert(Command.TURBO)) >> 7
@@ -188,9 +187,9 @@ class AirConditionerController:
     def _set_turbo(self, state: bool):
         # Also called super mode
         if state:
-            self.data.d1 |= Command.TURBO
+            self.data.d1 |= invert(Command.TURBO)
         else:
-            self.data.d1 &= ~Command.TURBO
+            self.data.d1 &= ~invert(Command.TURBO)
 
     def _get_mode(self):
         res = (self.data.d1 & invert(Command.MODE)) >> 0
@@ -200,8 +199,14 @@ class AirConditionerController:
         controlbit = (value << 0) % 255
         self.data.d1 = (self.data.d1 & Command.MODE) | controlbit
 
+    def _get_swing(self):
+        return self.data.d3
+
+    def _set_swing(self, value):
+        self.data.d3 = value
+
     def _set_swing_off(self):
-        self.data.d3 = 0
+        self._set_swing(0)
 
     def _get_swing_left_right(self) -> int:
         res = (self.data.d3 & invert(Command.WIND_LEFT_RIGHT)) >> 4
@@ -255,9 +260,9 @@ class AirConditionerController:
 
     def _set_mute(self, state: bool):
         if state:
-            self.data.d2 |= Command.MUTE
+            self.data.d2 |= invert(Command.MUTE)
         else:
-            self.data.d2 &= ~Command.MUTE
+            self.data.d2 &= ~invert(Command.MUTE)
 
     def _get_temperature_mode(self) -> bool:
         res = (self.data.d2 & invert(Command.TEMPERATURE_MODE)) >> 5
@@ -282,9 +287,9 @@ class AirConditionerController:
 
     def _set_auxiliary_heating(self, state: bool):
         if state:
-            self.data.d4 |= Command.AUXILIARY_HEATING
+            self.data.d4 |= invert(Command.AUXILIARY_HEATING)
         else:
-            self.data.d4 &= ~Command.AUXILIARY_HEATING
+            self.data.d4 &= ~invert(Command.AUXILIARY_HEATING)
 
     def _get_sleep(self) -> bool:
         res = (self.data.d4 & invert(Command.SLEEP)) >> 1
@@ -293,9 +298,9 @@ class AirConditionerController:
 
     def _set_sleep(self, state: bool):
         if state:
-            self.data.d4 |= Command.SLEEP
+            self.data.d4 |= invert(Command.SLEEP)
         else:
-            self.data.d4 &= ~Command.SLEEP
+            self.data.d4 &= ~invert(Command.SLEEP)
 
     def _get_energy_saving(self) -> bool:
         res = (self.data.d4 & invert(Command.ENERGY_SAVING)) >> 0
@@ -305,9 +310,9 @@ class AirConditionerController:
     def _set_energy_saving(self, state: bool):
         control = 1 if state else 0
         if control:
-            self.data.d4 |= Command.ENERGY_SAVING
+            self.data.d4 |= invert(Command.ENERGY_SAVING)
         else:
-            self.data.d4 &= ~Command.ENERGY_SAVING
+            self.data.d4 &= ~invert(Command.ENERGY_SAVING)
 
     def _get_filter(self) -> bool:
         res = (self.data.d4 & invert(Command.FILTER_PM25)) >> 6
@@ -316,9 +321,9 @@ class AirConditionerController:
 
     def _set_filter(self, state: bool):
         if state:
-            self.data.d4 |= Command.FILTER_PM25
+            self.data.d4 |= invert(Command.FILTER_PM25)
         else:
-            self.data.d4 &= ~Command.FILTER_PM25
+            self.data.d4 &= ~invert(Command.FILTER_PM25)
 
     def _get_light(self) -> bool:
         res = (self.data.d4 & invert(Command.LIGHT)) >> 7
@@ -327,9 +332,9 @@ class AirConditionerController:
 
     def _set_light(self, state: bool):
         if state:
-            self.data.d4 |= Command.LIGHT
+            self.data.d4 |= invert(Command.LIGHT)
         else:
-            self.data.d4 &= ~Command.LIGHT
+            self.data.d4 &= ~invert(Command.LIGHT)
 
     def _get_state(self):
         res = {
@@ -348,7 +353,6 @@ class AirConditionerController:
             'sleep': self._get_sleep(),
             'turbo': self._get_turbo(),
         }
-        _logger.info(pformat(res))
         return res
 
     def _run_command(self):
