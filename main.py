@@ -10,6 +10,7 @@ import time
 
 import skyworth.ac_controller
 import skyworth.ac_model
+import skyworth.ac_data
 
 from skyworth import AirConditioner
 from skyworth.ac_model import (
@@ -38,28 +39,31 @@ formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+LOG_LEVEL = logging.DEBUG
+
 # Create console handler with a higher log level
 log_stream_handler = logging.StreamHandler()
-log_stream_handler.setLevel(logging.DEBUG)
+log_stream_handler.setLevel(LOG_LEVEL)
 
 # Create file handler
 log_stream_handler.setFormatter(formatter)
 log_file_handler = logging.FileHandler(LOG_FILENAME)
 log_file_handler.setFormatter(formatter)
 
-# Add the handler to the logger
-_logger.addHandler(log_stream_handler)
-_logger.addHandler(log_file_handler)
+def enabled_logging(logger):
+    logger.setLevel(LOG_LEVEL)
+    # Add handlers to the logger
+    logger.addHandler(log_stream_handler)
+    logger.addHandler(log_file_handler)
 
+# Enable logger for main
+enabled_logging(_logger)
 # Enable logger for ac_controller
-skyworth.ac_controller._logger.setLevel(logging.DEBUG)
-skyworth.ac_controller._logger.addHandler(log_stream_handler)
-skyworth.ac_controller._logger.addHandler(log_file_handler)
-
+enabled_logging(skyworth.ac_controller._logger)
 # Enable logger for ac_model
-skyworth.ac_model._logger.setLevel(logging.DEBUG)
-skyworth.ac_model._logger.addHandler(log_stream_handler)
-skyworth.ac_model._logger.addHandler(log_file_handler)
+enabled_logging(skyworth.ac_model._logger)
+# Enable logger for ac_data
+enabled_logging(skyworth.ac_data._logger)
 
 ac = None
 

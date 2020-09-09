@@ -9,6 +9,7 @@ from enum import IntEnum
 from pprint import pformat
 
 from crcmod.predefined import mkPredefinedCrcFun
+from .ac_data import AirConditionerData
 from .convert import (
     byte2sbyte,
     sbyte2byte,
@@ -151,96 +152,96 @@ class AirConditionerController:
     def __init__(self, host: str, port: int = 1998) -> None:
         self.host = host
         self.port = port
+        self.data = AirConditionerData()
         self._reset_data()
 
     def _reset_data(self):
-        self.data1 = 0
-        self.data2 = 0
-        self.data3 = 0
-        self.data4 = sbyte2byte(-124)
-        self.data5 = 0
-        self.data6 = 0
-        self.data7 = 0
-        self.data8 = 0
-        self.data9 = 0
-        self.data10 = 0
-        self.data13 = 0
-        self.data14 = 0
+        self.data.d1 = 0
+        self.data.d2 = 0
+        self.data.d3 = 0
+        self.data.d4 = sbyte2byte(-124)
+        self.data.d5 = 0
+        self.data.d6 = 0
+        self.data.d7 = 0
+        self.data.d8 = 0
+        self.data.d9 = 0
+        self.data.d10 = 0
+        self.data.d13 = 0
+        self.data.d14 = 0
 
     def _get_power(self) -> bool:
-        res = (self.data1 & invert(Command.POWER)) >> 3
+        res = (self.data.d1 & invert(Command.POWER)) >> 3
         res = res % 255
         return True if res == 1 else False
 
     def _set_power(self, state: bool):
         if state:
-            self.data1 |= Command.POWER
+            self.data.d1 |= Command.POWER
         else:
-            self.data1 &= ~Command.POWER
+            self.data.d1 &= ~Command.POWER
 
     def _get_turbo(self) -> bool:
-        res = (self.data1 & invert(Command.TURBO)) >> 7
+        res = (self.data.d1 & invert(Command.TURBO)) >> 7
         res = res % 255
         return True if res == 1 else False
 
     def _set_turbo(self, state: bool):
         # Also called super mode
         if state:
-            self.data1 |= Command.TURBO
+            self.data.d1 |= Command.TURBO
         else:
-            self.data1 &= ~Command.TURBO
+            self.data.d1 &= ~Command.TURBO
 
     def _get_mode(self):
-        res = (self.data1 & invert(Command.MODE)) >> 0
+        res = (self.data.d1 & invert(Command.MODE)) >> 0
         return res % 255
 
     def _set_mode(self, value: int):
         controlbit = (value << 0) % 255
-        self.data1 = (self.data1 & Command.MODE) | controlbit
+        self.data.d1 = (self.data.d1 & Command.MODE) | controlbit
 
     def _set_swing_off(self):
-        self.data3 = 0
+        self.data.d3 = 0
 
     def _get_swing_left_right(self) -> int:
-        res = (self.data3 & invert(Command.WIND_LEFT_RIGHT)) >> 4
+        res = (self.data.d3 & invert(Command.WIND_LEFT_RIGHT)) >> 4
         res = res % 255
         return True if res == 1 else False
 
     def _set_swing_left_right(self, state: bool):
         control = 1 if state else 0
         controlbit = (control << 4) % 255
-        self.data3 = (self.data3 & Command.WIND_LEFT_RIGHT) | controlbit
+        self.data.d3 = (self.data.d3 & Command.WIND_LEFT_RIGHT) | controlbit
 
     def _get_swing_up_down(self) -> int:
-        res = (self.data3 & invert(Command.WIND_UP_DOWN)) >> 0
+        res = (self.data.d3 & invert(Command.WIND_UP_DOWN)) >> 0
         res = res % 255
         return True if res == 1 else False
 
     def _set_swing_up_down(self, state: bool):
         control = 1 if state else 0
         controlbit = (control << 0) % 255
-        self.data3 = (self.data3 & Command.WIND_UP_DOWN) | controlbit
+        self.data.d3 = (self.data.d3 & Command.WIND_UP_DOWN) | controlbit
 
     def _get_fan_speed(self) -> int:
-        res = (self.data1 & invert(Command.FAN_SPEED)) >> 4
+        res = (self.data.d1 & invert(Command.FAN_SPEED)) >> 4
         value = res % 255
         return value
 
     def _set_fan_speed(self, value: int):
         assert (value <= 6)
         controlbit = (value << 4) % 255
-        self.data1 = (self.data1 & Command.FAN_SPEED) | controlbit
+        self.data.d1 = (self.data.d1 & Command.FAN_SPEED) | controlbit
 
     def _set_temperature_set(self, temperature: int):
         if self._get_temperature_mode():
             value = fahrenheit_to_raw(temperature)
         else:
             value = celcius_to_raw(temperature)
-        self.data2 = (self.data2 & Command.TEMPERATURE_SET) | value
-        _logger.debug(self.data2)
+        self.data.d2 = (self.data.d2 & Command.TEMPERATURE_SET) | value
 
     def _get_temperature_set(self) -> int:
-        value = self.data2 & invert(Command.TEMPERATURE_SET)
+        value = self.data.d2 & invert(Command.TEMPERATURE_SET)
         if self._get_temperature_mode():
             temperature = raw_to_fahrenheit(value)
         else:
@@ -248,18 +249,18 @@ class AirConditionerController:
         return temperature
 
     def _get_mute(self) -> bool:
-        res = (self.data2 & invert(Command.MUTE)) >> 6
+        res = (self.data.d2 & invert(Command.MUTE)) >> 6
         res = res % 255
         return True if res == 1 else False
 
     def _set_mute(self, state: bool):
         if state:
-            self.data2 |= Command.MUTE
+            self.data.d2 |= Command.MUTE
         else:
-            self.data2 &= ~Command.MUTE
+            self.data.d2 &= ~Command.MUTE
 
     def _get_temperature_mode(self) -> bool:
-        res = (self.data2 & invert(Command.TEMPERATURE_MODE)) >> 5
+        res = (self.data.d2 & invert(Command.TEMPERATURE_MODE)) >> 5
         res = res % 255
         return True if res == 1 else False
 
@@ -272,64 +273,64 @@ class AirConditionerController:
         """
         control = 1 if state else 0
         controlbit = (control << 5) % 255
-        self.data2 = (self.data2 & Command.TEMPERATURE_MODE) | controlbit
-        _logger.debug(self.data2)
+        self.data.d2 = (self.data.d2 & Command.TEMPERATURE_MODE) | controlbit
+        _logger.debug(self.data.d2)
 
     def _get_auxiliary_heating(self) -> bool:
-        res = (self.data4 & invert(Command.AUXILIARY_HEATING)) >> 4
+        res = (self.data.d4 & invert(Command.AUXILIARY_HEATING)) >> 4
         res = res % 255
         return True if res == 1 else False
 
     def _set_auxiliary_heating(self, state: bool):
         if state:
-            self.data4 |= Command.AUXILIARY_HEATING
+            self.data.d4 |= Command.AUXILIARY_HEATING
         else:
-            self.data4 &= ~Command.AUXILIARY_HEATING
+            self.data.d4 &= ~Command.AUXILIARY_HEATING
 
     def _get_sleep(self) -> bool:
-        res = (self.data4 & invert(Command.SLEEP)) >> 1
+        res = (self.data.d4 & invert(Command.SLEEP)) >> 1
         res = res % 255
         return True if res == 1 else False
 
     def _set_sleep(self, state: bool):
         if state:
-            self.data4 |= Command.SLEEP
+            self.data.d4 |= Command.SLEEP
         else:
-            self.data4 &= ~Command.SLEEP
+            self.data.d4 &= ~Command.SLEEP
 
     def _get_energy_saving(self) -> bool:
-        res = (self.data4 & invert(Command.ENERGY_SAVING)) >> 0
+        res = (self.data.d4 & invert(Command.ENERGY_SAVING)) >> 0
         res = res % 255
         return True if res == 1 else False
 
     def _set_energy_saving(self, state: bool):
         control = 1 if state else 0
         if control:
-            self.data4 |= Command.ENERGY_SAVING
+            self.data.d4 |= Command.ENERGY_SAVING
         else:
-            self.data4 &= ~Command.ENERGY_SAVING
+            self.data.d4 &= ~Command.ENERGY_SAVING
 
     def _get_filter(self) -> bool:
-        res = (self.data4 & invert(Command.FILTER_PM25)) >> 6
+        res = (self.data.d4 & invert(Command.FILTER_PM25)) >> 6
         res = res % 255
         return True if res == 1 else False
 
     def _set_filter(self, state: bool):
         if state:
-            self.data4 |= Command.FILTER_PM25
+            self.data.d4 |= Command.FILTER_PM25
         else:
-            self.data4 &= ~Command.FILTER_PM25
+            self.data.d4 &= ~Command.FILTER_PM25
 
     def _get_light(self) -> bool:
-        res = (self.data4 & invert(Command.LIGHT)) >> 7
+        res = (self.data.d4 & invert(Command.LIGHT)) >> 7
         res = res % 255
         return True if res == 1 else False
 
     def _set_light(self, state: bool):
         if state:
-            self.data4 |= Command.LIGHT
+            self.data.d4 |= Command.LIGHT
         else:
-            self.data4 &= ~Command.LIGHT
+            self.data.d4 &= ~Command.LIGHT
 
     def _get_state(self):
         res = {
@@ -354,9 +355,9 @@ class AirConditionerController:
     def _run_command(self):
         _logger.info('_run_command')
         data = [
-            self.data13, self.data14, self.data1, self.data2, self.data3,
-            self.data4, self.data5, self.data6, self.data7, self.data8,
-            self.data9, self.data10
+            self.data.d13, self.data.d14, self.data.d1, self.data.d2, self.data.d3,
+            self.data.d4, self.data.d5, self.data.d6, self.data.d7, self.data.d8,
+            self.data.d9, self.data.d10
         ]
         self._send(Query.TYPE_COMMAND, data)
 
@@ -398,16 +399,16 @@ class AirConditionerController:
                         f'inner_temperature_float={inner_temperature_float}'
                     )
 
-                    self.data1 = data[13]
-                    self.data2 = data[14]
-                    self.data3 = data[15]
-                    self.data4 = data[16] & 254
-                    self.data5 = data[17]
-                    self.data6 = data[18]
-                    self.data7 = data[19]
-                    self.data8 = data[20]
-                    self.data9 = data[21]
-                    self.data10 = data[22]
+                    self.data.d1 = data[13]
+                    self.data.d2 = data[14]
+                    self.data.d3 = data[15]
+                    self.data.d4 = data[16] & 254
+                    self.data.d5 = data[17]
+                    self.data.d6 = data[18]
+                    self.data.d7 = data[19]
+                    self.data.d8 = data[20]
+                    self.data.d9 = data[21]
+                    self.data.d10 = data[22]
 
                     fan = ((data[13] & 112) >> 4)
                     print(fan)
